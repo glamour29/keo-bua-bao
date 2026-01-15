@@ -1,73 +1,65 @@
 import express from "express";
-import { createServer } from "http";
+import http from "http";
 import { Server } from "socket.io";
+import path from "path";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
 import dotenv from "dotenv";
-import { RoomManager } from "./server/socket/roomManager.js";
-import { setupSocketHandlers } from "./server/socket/handlers.js";
-import routes from "./server/routes/index.js";
 
-// Load environment variables
+import router from "./server/routes/index.js";
+import { registerSocketHandlers } from "./server/socket/handlers.js";
+import { RoomManager } from "./server/socket/roomManager.js";
+
 dotenv.config();
 
-// Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-// Initialize Express app
 const app = express();
+const server = http.createServer(app);
+
 const PORT = process.env.PORT || 3000;
+const ORIGIN = process.env.CORS_ORIGIN || "*";
 
-// Create HTTP server
-const httpServer = createServer(app);
-
-// Initialize Socket.IO
-const io = new Server(httpServer, {
+const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: ORIGIN,
     methods: ["GET", "POST"],
   },
+  pingTimeout: Number(process.env.SOCKET_PING_TIMEOUT || 60000),
+  pingInterval: Number(process.env.SOCKET_PING_INTERVAL || 25000),
 });
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Serve static files from public directory
-app.use(express.static(join(__dirname, "public")));
-
-// Serve images
-app.use("/images", express.static(join(__dirname, "images")));
-
-// Serve CSS files
-app.use("/css", express.static(join(__dirname, "public", "css")));
-
-// Serve JS files
-app.use("/js", express.static(join(__dirname, "public", "js")));
+// Static assets
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "images")));
 
 // Routes
-app.use("/", routes);
+app.use("/", router);
 
-// Initialize Room Manager
+// Socket setup with room manager
 const roomManager = new RoomManager();
+registerSocketHandlers(io, roomManager);
 
-// Setup Socket.IO handlers
-setupSocketHandlers(io, roomManager);
-
-// Start server
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
-  console.log(`📡 Socket.IO server đã sẵn sàng`);
+// Health check
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
-// Handle errors
-process.on("uncaughtException", (error) => {
-  console.error("❌ Uncaught Exception:", error);
-  process.exit(1);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server đang chạy tại http://localhost:${PORT}`);
 });
 
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
-  process.exit(1);
+process.on("SIGINT", () => {
+  console.log("Đang tắt server (SIGINT)...");
+  server.close(() => process.exit(0));
 });
+
+process.on("SIGTERM", () => {
+  console.log("Đang tắt server (SIGTERM)...");
+  server.close(() => process.exit(0));
+});
+
