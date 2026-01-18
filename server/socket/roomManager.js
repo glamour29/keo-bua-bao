@@ -97,4 +97,84 @@ export class RoomManager {
     return this.rooms[roomID];
   }
 
+  /**
+   * Delete a room
+   * @param {string} roomID - Room identifier
+   */
+  deleteRoom(roomID) {
+    delete this.rooms[roomID];
+  }
+
+  /**
+   * Reset room state when player leaves
+   * @param {string} roomID - Room identifier
+   * @param {boolean} isPlayer1 - Whether leaving player is player 1
+   */
+  resetRoomOnPlayerLeave(roomID, isPlayer1) {
+    if (!this.rooms[roomID]) return;
+
+    if (isPlayer1) {
+      this.rooms[roomID].player1Id = null;
+    } else {
+      this.rooms[roomID].player2Id = null;
+    }
+
+    this.rooms[roomID].p1Choice = null;
+    this.rooms[roomID].p2Choice = null;
+    this.rooms[roomID].p1Score = 0;
+    this.rooms[roomID].p2Score = 0;
+    this.rooms[roomID].status = ROOM_STATUS.WAITING;
+  }
+
+  /**
+   * Set player choice
+   * @param {string} roomID - Room identifier
+   * @param {boolean} isPlayer1 - Whether it's player 1
+   * @param {string} choice - The choice made
+   */
+  setChoice(roomID, isPlayer1, choice) {
+    if (!this.rooms[roomID]) return false;
+
+    if (isPlayer1) {
+      this.rooms[roomID].p1Choice = choice;
+    } else {
+      this.rooms[roomID].p2Choice = choice;
+    }
+
+    return true;
+  }
+
+  /**
+   * Reset choices for next round
+   * @param {string} roomID - Room identifier
+   */
+  resetChoices(roomID) {
+    if (this.rooms[roomID]) {
+      this.rooms[roomID].p1Choice = null;
+      this.rooms[roomID].p2Choice = null;
+    }
+  }
+
+  /**
+   * Update score
+   * @param {string} roomID - Room identifier
+   * @param {string} winner - Winner type ("p1", "p2", or "draw")
+   */
+  updateScore(roomID, winner) {
+    if (!this.rooms[roomID]) return;
+
+    if (winner === "p1") {
+      this.rooms[roomID].p1Score = (this.rooms[roomID].p1Score || 0) + 1;
+    } else if (winner === "p2") {
+      this.rooms[roomID].p2Score = (this.rooms[roomID].p2Score || 0) + 1;
+    }
+  }
+
+  /**
+   * Get all rooms (for debugging)
+   * @returns {Object}
+   */
+  getAllRooms() {
+    return this.rooms;
+  }
 }
